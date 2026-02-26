@@ -1,0 +1,81 @@
+﻿
+-- Lợi nhuận theo từng vùng
+SELECT 
+    KhuVuc, 
+    SUM(DoanhThu) AS TongDoanhThu, 
+    SUM(LoiNhuan) AS TongLoiNhuan,
+    ROUND((CAST(SUM(LoiNhuan) AS FLOAT) / SUM(DoanhThu)) * 100,2) AS TySuatLoiNhuan_PhanTram
+FROM SalesData
+GROUP BY KhuVuc
+ORDER BY TongDoanhThu DESC;
+
+-- Top 5 sản phẩm bán chạy theo số lượng bán ra
+SELECT TOP 5 
+    TenSanPham, 
+    SUM(SoLuong) AS TongSoLuongBan, 
+    SUM(DoanhThu) AS TongDoanhThu
+FROM SalesData
+GROUP BY TenSanPham
+ORDER BY TongSoLuongBan DESC;
+
+-- Lợi nhuận theo từng tháng
+SELECT 
+    Thang, 
+    SUM(DoanhThu) AS DoanhThuTheoThang, 
+    SUM(LoiNhuan) AS LoiNhuanTheoThang,
+    SUM(SoLuong) AS SoLuongBanRa
+FROM SalesData
+GROUP BY Thang
+ORDER BY Thang ASC;
+
+-- Lợi nhuận theo từng sản phẩm 
+SELECT 
+    TenSanPham, 
+    SUM(DoanhThu) AS TongDoanhThu, 
+    SUM(LoiNhuan) AS TongLoiNhuan,
+    ROUND((CAST(SUM(LoiNhuan) AS FLOAT) / SUM(DoanhThu)) * 100,2) AS TySuatLoiNhuan_PhanTram
+FROM SalesData
+GROUP BY TenSanPham
+ORDER BY TySuatLoiNhuan_PhanTram DESC;
+
+-- TOP 3 tháng bán chạy nhất trong năm và mặt hàng bán chạy nhất
+WITH ProductSales AS (
+    -- Tính tổng số lượng và doanh thu của từng sản phẩm theo từng tháng
+    SELECT 
+        Thang,
+        TenSanPham,
+        SUM(SoLuong) AS TongSoLuongBan,
+        SUM(CAST(DoanhThu AS BIGINT)) AS DoanhThuSanPham,
+        -- Xếp hạng sản phẩm bán chạy nhất (theo số lượng) trong mỗi tháng
+        ROW_NUMBER() OVER(PARTITION BY Thang ORDER BY SUM(SoLuong) DESC) AS XepHangSanPham
+    FROM SalesData
+    GROUP BY Thang, TenSanPham
+),
+Top3Months AS (
+    -- Tính tổng doanh thu của từng tháng và lấy ra top 3 tháng cao nhất
+    SELECT TOP 3 
+        Thang, 
+        SUM(CAST(DoanhThu AS BIGINT)) AS TongDoanhThuThang
+    FROM SalesData
+    GROUP BY Thang
+    ORDER BY TongDoanhThuThang DESC
+)
+-- Nối kết quả của 2 bảng tạm trên lại với nhau
+SELECT 
+    t3.Thang,
+    t3.TongDoanhThuThang,
+    ps.TenSanPham AS SanPhamBanChayNhat,
+    ps.TongSoLuongBan AS SoLuongBanRa,
+    ps.DoanhThuSanPham AS DoanhThuTuSanPhamNay
+FROM Top3Months t3
+JOIN ProductSales ps ON t3.Thang = ps.Thang
+WHERE ps.XepHangSanPham = 1 -- Chỉ lấy sản phẩm đứng Top 1 của tháng đó
+ORDER BY t3.TongDoanhThuThang DESC;
+
+-- Giá trị đơn hàng trung bình: Cho biết mỗi đơn hàng, khách hàng thường chi bao nhiêu tiền
+SELECT 
+    KhuVuc,
+    COUNT(DISTINCT MaGiaoDich) AS TongSoDonHang,
+    SUM(DoanhThu) / COUNT(DISTINCT MaGiaoDich) AS GiaTriDonHangTrungBinh
+FROM SalesData
+GROUP BY KhuVuc;
